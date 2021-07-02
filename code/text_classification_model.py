@@ -1,32 +1,19 @@
 import pandas as pd
-
-import numpy as np
-from pandas.core.frame import DataFrame
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-
 from nltk import pos_tag
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet
 from nltk.stem import WordNetLemmatizer
-
 from emot.emo_unicode import UNICODE_EMO, EMOTICONS
 import re
-
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
-from sklearn.metrics import confusion_matrix
-
 from keras.preprocessing.text import Tokenizer
-from keras.models import Sequential
-from keras.layers import Activation, Dense, Dropout
-
-from keras.layers import Flatten
-from keras.layers.convolutional import Conv1D
-from keras.layers.convolutional import MaxPooling1D
-from keras.layers.embeddings import Embedding
-from keras.preprocessing import sequence
+from keras.utils import to_categorical
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import matplotlib.pyplot as plt
 
 # Reading in the csv, containing the the csv data
 text_df = pd.read_csv("datasets/text_data/IMDB Dataset.csv")
@@ -54,7 +41,8 @@ def data_preprocessing(dataframe, x_column):
     url_regex = re.compile(r'https?://\S+|www\.\S+') # Website regular expression, eg: www.example.com
     mentions_regex = re.compile(r'@[A-Za-z0-9]+') # Mentions regular expression, eg: @example
     emails_regex = re.compile(r'[A-Za-z0-9]+@[a-zA-z].[a-zA-Z]+') # Emails regular expression, eg: example@example.com
-    punctuation_regex = re.compile(r'[^\w\s]') # Punctuation regular expression, eg: ; ? ' etc...
+    punctuation_regex = re.compile(r'[^\w\s]') # Punctuation regular expression, eg: ?, ' , ; etc...
+    numbers_regex = re.compile(r'\b\d+(?:\.\d+)?\s+') # Number regular expression, eg: 3
 
     # Applying the above defined regular expressions to the target column:
     x_column = x_column.str.replace(html_regex,'',regex=True)
@@ -62,6 +50,7 @@ def data_preprocessing(dataframe, x_column):
     x_column = x_column.str.replace(mentions_regex,'',regex=True)
     x_column = x_column.str.replace(emails_regex,'',regex=True)
     x_column = x_column.str.replace(punctuation_regex,'',regex=True)
+    x_column = x_column.str.replace(numbers_regex,'',regex=True)
 
     # Importing english stopwords from nltk library and removing from dataframe
     eng_stopwords = set(stopwords.words('english'))
@@ -83,34 +72,76 @@ def data_preprocessing(dataframe, x_column):
 ###################
 # DATA PROCESSING #
 ###################
-def data_processing(x_data, y_data, test_proportion):
-    # Splitting data (train and test)
-    x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size = test_proportion, random_state = 0)
 
-    # The data set has tens or hundreds of thousands of unique words, we need to limit this number.
-    # We initialise a tokenizer and use vocab_size to keep the most frequent 20,000 words.
+def data_processing(data, labels, validation_split):
     vocab_size = 20000
-    num_classes = 2
 
-    tokenizer = Tokenizer(num_words = vocab_size)
-    x_train = tokenizer.texts_to_matrix(x_train)
-    x_test = tokenizer.texts_to_matrix(x_test)
+    tokenizer = Tokenizer(vocab_size)
+    tokenizer.fit_on_texts(data)
+    sequences = tokenizer.texts_to_sequences(data)
+
+    word_index = tokenizer.word_index
+    print('Found %s unique tokens.' % len(word_index))
+
+    # Get max training sequence length
+    max_sequence_length = max([len(x) for x in sequences])
+    data = pad_sequences(sequences, maxlen=max_sequence_length)
 
     encoder = LabelBinarizer()
-    y_train = encoder.fit_transform(y_train)
-    y_test = encoder.fit_transform(y_test)
+    labels = encoder.fit_transform(labels)
+    print('Shape of data tensor:', data.shape)
+    print('Shape of label tensor:', labels.shape)
+    print(labels)
 
-    return x_train, x_test, y_train, y_test, vocab_size, num_classes
+    X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size = validation_split, random_state=1)
+    print(X_train)
+
+    return X_train, X_test, y_train, y_test, max_sequence_length, word_index, vocab_size
 
 text_df, text_df['review'] = data_preprocessing(text_df, text_df['review'])
-print(text_df.head())
+X_train, X_test, y_train, y_test, max_sequence_length, word_index, vocab_size = data_processing(text_df['review'], text_df['sentiment'],0.3)
 
-x_train, x_test, y_train, y_test, vocab_size, num_classes, = data_processing(text_df['review'], text_df['sentiment'],0.3)
+###################
+# BUILD THE MODEL #
+###################
 
+# Input for variable-length sequences of integers
+inputs = keras.Input(shape=(None,), dtype="int32")
+# Embed each integer in a 128-dimensional vector
+x = layers.Embedding(vocab_size, 128)(inputs)
+# Add 2 bidirectional LSTMs
+x = layers.Bidirectional(layers.LSTM(64, return_sequences=True))(x)
+x = layers.Bidirectional(layers.LSTM(64))(x)
+# Add a classifier
+outputs = layers.Dense(1, activation="sigmoid")(x)
+model = keras.Model(inputs, outputs)
+model.summary()
 
+print(len(X_train), "Training sequences")
+print(len(X_test), "Validation sequences")
 
+################################
+# TRAIN AND EVALUATE THE MODEL #
+################################
+model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
+history = model.fit(X_train, y_train, batch_size=32, epochs=1, validation_data=(X_test, y_test))
 
-
-
-
+# list all data in history
+print(history.history.keys())
+# summarize history for accuracy
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+# summarize history for loss
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
