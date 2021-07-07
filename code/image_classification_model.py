@@ -7,6 +7,12 @@ import PIL
 import PIL.Image
 import tensorflow as tf
 import pathlib
+import pandas as pd
+from tensorflow import keras
+from keras.preprocessing.image import ImageDataGenerator
+from matplotlib import pyplot as plt
+
+from tensorflow.python.ops.gen_array_ops import tensor_scatter_add_eager_fallback
 
 ################
 # DATA DETAILS #
@@ -38,4 +44,27 @@ def data_details(data_path):
         print("Total number of images:", image_count_real+image_count_fake)
         print("")
 
+####################
+# DATASET CREATION #
+####################
+
+def dataset_creation(batch_size, img_height, img_width, dataframe):
+    data_generator = ImageDataGenerator()
+    generator = data_generator.flow_from_dataframe(
+        dataframe = dataframe,
+        x_col= 'path',
+        y_col= 'label_str',
+        batch_size= batch_size,
+        target_size= (img_height,img_width),
+        color_mode= 'rgb',
+        class_mode= 'categorical'
+    )
+
+test_df = pd.read_csv('datasets/image_data_1/test.csv')
+train_df = pd.read_csv('datasets/image_data_1/train.csv')
+valid_df = pd.read_csv('datasets/image_data_1/valid.csv')
+
 data_details("datasets/image_data_1/real_vs_fake")
+dataset_creation(32, 256, 256, test_df)
+dataset_creation(32, 256, 256, train_df)
+dataset_creation(32, 256, 256, valid_df)
