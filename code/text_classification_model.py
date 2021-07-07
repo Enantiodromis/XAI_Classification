@@ -1,4 +1,6 @@
+from keras.engine.sequential import Sequential
 import pandas as pd
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -14,6 +16,9 @@ from keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import matplotlib.pyplot as plt
 import shap
+from tensorflow.keras.models import load_model
+import tensorflow.python.keras.backend as backend
+#tf.compat.v1.disable_v2_behavior()
 
 # Reading in the csv, containing the the csv data
 text_df = pd.read_csv("datasets/text_data/IMDB Dataset.csv")
@@ -81,6 +86,7 @@ def data_processing(data, labels, validation_split):
     
     X_train_cpy = X_train
     X_test_cpy = X_test
+    y_test_cpy = y_test
 
     vocab_size = 20000
 
@@ -88,6 +94,9 @@ def data_processing(data, labels, validation_split):
     tokenizer.fit_on_texts(X_train)
     sequences_train = tokenizer.texts_to_sequences(X_train)
     sequences_test = tokenizer.texts_to_sequences(X_test)
+    # Defining the word index
+    word_index = tokenizer.word_index
+    print("Unique words: {}".format(len(word_index)))
 
     # Get max training sequence length
     max_sequence_length = max([len(x) for x in sequences_train])
@@ -102,8 +111,9 @@ def data_processing(data, labels, validation_split):
     print('Shape of x test tensor:', X_test.shape)
     print('Shape of y train tensor:', y_train.shape)
     print('Shape of y test tensor:', y_test.shape)
+    print(y_test)
 
-    return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy
+    return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy
 
 #######################################
 # BUILD, TRAIN AND EVALUATE THE MODEL #
@@ -126,7 +136,7 @@ def lstm_model(vocab_size, X_train, y_train, X_test, y_test, number_epochs):
     history = model.fit(X_train, y_train, batch_size=32, epochs=number_epochs, validation_data=(X_test, y_test))
 
     # Saving the model
-    model.save("models/LSTM_",number_epochs, save_format="h5")
+    model.save("models/LSTM_%d" %epoch_num, save_format="h5")
     
     return history, model
 
@@ -161,29 +171,44 @@ def plot_accuracy_loss(model_history, number_epochs):
 ##################
 # SHAP EXPLAINER #
 ##################
-""""
-def shap_explainer(X_train_not_encoded, X_test_not_encoded, X_train_encoded, X_test_encoded, model):
-    # Using the first 100 training examples as our background dataset to intergrate over
-    explainer = shap.DeepExplainer(model, X_train_encoded[:100])
-    
-    # Explain the first 10 predictions
-    # Explaining each prediction requires 2 * background dataset size runs
-    x_test_10_encoded = X_test_encoded[:10]
-    x_test_10_not_encoded = X_test_not_encoded[:10]
-    
-    shap_values = explainer.shap_values(x_test_10_encoded)
 
+def shap_explainer(X_train_not_encoded, X_test_not_encoded, X_train_encoded, X_test_encoded, model, word_index, y_test_cpy):
+    y_test_cpy = np.array(y_test_cpy).flatten()
+    background = X_train_encoded[:100]
+    session = backend.get_session()
+    explainer = shap.DeepExplainer(model, background, session)
+
+    num_explanation = 10
+    print(X_test_not_encoded[:num_explanation])  
+    shap_values = explainer.shap_values(X_test_encoded[:num_explanation])
+    print(shap_values)
+    """num2word = {}
+    for w in word_index.keys():
+        num2word[word_index[w]] = w
+    x_test_words = np.stack([np.array(list(map(lambda x: num2word.get(x, "NONE"), X_test_encoded[i]))) for i in range(10)])
+    print("X_test_words: ", x_test_words)
+    shap.summary_plot(shap_values, feature_names = list(num2word.values()))
+    #shap.summary_plot(shap_values, feature_names = list(num2word.values()))"""
+
+    """# init the JS visualization code
     shap.initjs()
-    # plot the explanation of the first prediction
-    # Note the model is "multi-output" because it is rank-2 but only has one column
-    shap.force_plot(explainer.expected_value[0], shap_values[0][0], x_test_10_not_encoded[0])
-"""
-epoch_num = 10
+    # create dict to invert word_idx k,v order
+    num2word = {}
+    for w in word_index.keys():
+        num2word[word_index[w]] = w
+    x_test_words = np.stack([np.array(list(map(lambda x: num2word.get(x, "NONE"), X_test_encoded[i]))) for i in range(10)])
+
+    # plot the explanation of a given prediction
+    shap.force_plot(explainer.expected_value[0], shap_values[0][0], x_test_words[0])"""
+
+epoch_num = 11
+#model = load_model("models/LSTM_%d" %epoch_num)
+
 text_df, text_df['review'] = data_preprocessing(text_df, text_df['review'])
-X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy = data_processing(text_df['review'], text_df['sentiment'],0.3)
+X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy = data_processing(text_df['review'], text_df['sentiment'],0.3)
 history, model = lstm_model(vocab_size, X_train, y_train, X_test, y_test, epoch_num)
 plot_accuracy_loss(history, epoch_num)
-#shap_explainer(X_train_cpy, X_test_cpy, X_train, X_test, model)
+#shap_explainer(X_train_cpy, X_test_cpy, X_train, X_test, model, word_index, y_test_cpy)
 
 
 
