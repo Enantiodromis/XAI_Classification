@@ -71,7 +71,7 @@ def dataset_creation(batch_size, img_height, img_width, dataframe):
 # BUILD, TRAIN AND EVALUATE THE MODEL #
 #######################################
 
-def img_classification_model(train_generator, test_generator):
+def img_classification_model(train_generator, test_generator, number_epochs):
     model = Sequential()
     model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(256, 256, 3)))
     model.add(MaxPool2D(2, 2))
@@ -89,14 +89,40 @@ def img_classification_model(train_generator, test_generator):
                 optimizer=RMSprop(lr=1e-4),
                 metrics=['acc'])
 
-    model.fit(
+    history = model.fit(
         train_generator,
-        steps_per_epoch=2000,
-        epochs=50,
+        steps_per_epoch=3125, # 100000/32 = 3125
+        epochs=number_epochs,
         validation_data=test_generator,
-        validation_steps=800,
+        validation_steps=625, # 20000/32 = 625
     )
-    model.save_weights('first_try.h5') 
+    model.save('image_classification_ConvNet.h5') 
+
+    return history, model
+
+def plot_accuracy_loss(model_history, number_epochs):
+    x_list = []
+    x_list.extend(range(0,number_epochs))
+
+    plt.figure(1)
+    plt.plot(model_history.history['accuracy'])
+    plt.plot(model_history.history['val_accuracy'])
+    plt.title('Model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.xticks(x_list)
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.savefig('data_plots/model_accuracy_img.jpg')
+
+    plt.figure(2)
+    plt.plot(model_history.history['loss'], color='green')
+    plt.plot(model_history.history['val_loss'], color='red')
+    plt.title('Model loss')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.xticks(x_list)
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.savefig('data_plots/model_loss_img.jpg')
 
 test_df = pd.read_csv('datasets/image_data_1/test.csv')
 train_df = pd.read_csv('datasets/image_data_1/train.csv')
@@ -110,4 +136,6 @@ valid_generator = dataset_creation(32, 256, 256, valid_df)
 print(train_generator.class_indices)
 print(train_generator.image_shape)
 
-img_classification_model(train_generator, valid_generator)
+epochs = 50
+history, model = img_classification_model(train_generator, valid_generator, epochs)
+plot_accuracy_loss(history, epochs)
