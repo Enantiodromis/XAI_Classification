@@ -2,6 +2,7 @@
 # IMPORTS #
 ###########
 from time import time
+from keras.backend import exp
 import numpy as np 
 import os 
 import PIL
@@ -28,6 +29,7 @@ from keras.applications import inception_v3 as inc_net
 from keras.preprocessing import image
 from skimage.color import label2rgb
 from lime.wrappers.scikit_image import SegmentationAlgorithm
+import random
 
 ################
 # DATA DETAILS #
@@ -149,17 +151,20 @@ def img_classification_model(train_generator, test_generator, number_epochs, fil
 
     history = model.fit(
         train_generator,
-        steps_per_epoch=len(train_generator)/train_generator.batch_size,
+        steps_per_epoch=len(train_generator),
         epochs=number_epochs,
         validation_data=test_generator,
-        validation_steps=len(test_generator)/test_generator.batch_size,
+        validation_steps=len(test_generator),
     )
     np.save('model_history/'+files_name+'.npy',history.history)
     model.save('models/'+files_name+'.h5') 
 
     return history, model
 
-def extracting_lime_explanation(path_list):
+###############################
+# EXTRACTING LIME EXPLANATION #
+###############################
+def extracting_lime_explanation(model, path_list, labels):
 
     def transform_img_fn(path_list):
         out = []
@@ -170,7 +175,7 @@ def extracting_lime_explanation(path_list):
             x = inc_net.preprocess_input(x)
             out.append(x)
         return np.vstack(out)
-
+    from keras.applications.imagenet_utils import decode_predictions
     images = transform_img_fn(path_list)
 
     def lime_explainer_image():
@@ -178,28 +183,46 @@ def extracting_lime_explanation(path_list):
         print('This may take a few minutes...')
         
         # Create explainer 
-        explainer = lime_image.LimeImageExplainer(verbose = False)
-        segmenter = SegmentationAlgorithm('slic', n_segments = 100, compactness = 1, sigma = 1)
+        explainer = lime_image.LimeImageExplainer()
+        #segmenter = SegmentationAlgorithm('slic', n_segments = 1000, compactness = 1, sigma = 1)
 
-        # Set up the explainer
-        explanation = explainer.explain_instance(images[0].astype('double'), classifier_fn= model,
-                                                top_labels = 5, hide_color = 0, num_samples = 1000, 
-                                                segmentation_fn = segmenter)
+        from skimage.segmentation import mark_boundaries  
+        
+        random_indexes = random.sample(range(1,len(images)),10)
+        for index in random_indexes:
 
-        # Plot the explainer
-        temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=True, num_features=10, hide_rest=False)
-        fig, (ax1, ax2) = plt.subplots(1,2, figsize = (8, 4))
-        ax1.imshow(label2rgb(mask,temp, bg_label = 0), interpolation = 'nearest')
-        ax1.set_title('Positive Regions for {}'.format(explanation.top_labels[0]))
-        temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=False, num_features=10, hide_rest=False, min_weight=0.01)
-        ax2.imshow(label2rgb(3-mask,temp, bg_label = 0), interpolation = 'nearest')
-        ax2.set_title('Positive & Negative Regions for {}'.format(explanation.top_labels[0]))
-        fig.savefig('faces21.jpg')
+            # Set up the explainer
+            explanation = explainer.explain_instance(images[index].astype('double'), classifier_fn= model.predict,labels=(0,1),
+                                                top_labels = 2, hide_color = 0, num_samples = 1000)
+
+            temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=True, num_features=5, hide_rest=True)
+            fig, (ax1, ax2, ax3) = plt.subplots(1,3, figsize = (10, 4))
+
+            preds = explanation.local_pred
+            prediction = np.argmax(preds)
+            pct = np.max(preds)
+
+            fig.suptitle('Classifier result: %r %% certainty of %r' %(round(pct,2)*100,labels[prediction]))
+            fig.tight_layout(h_pad=2)
+
+            ax1.imshow(images[index])
+            ax1.set_title('Original Image')
+
+            ax2.imshow(mark_boundaries(temp, mask))
+            #ax1.imshow(label2rgb(mask,temp, bg_label = 0), interpolation = 'nearest')
+            ax2.set_title('Positive Regions for {}'.format(labels[explanation.top_labels[0]]))
+
+            temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=False, num_features=10, hide_rest=False)
+            ax3.imshow(mark_boundaries(temp, mask))
+            #ax2.imshow(label2rgb(3-mask,temp, bg_label = 0), interpolation = 'nearest')
+            ax3.set_title('Positive & Negative Regions for {}'.format(labels[explanation.top_labels[0]]))
+
+            fig.savefig("image_explanations/lime_image_explanations/explanation_"+str(labels[explanation.top_labels[0]])+"_"+str(index)+".jpg")
     lime_explainer_image()
 
-def plot_accuracy_loss(model_history, number_epochs):
+def plot_accuracy_loss(model_history, number_epochs, model_name):
     x_list = []
-    x_list.extend(range(0,number_epochs))
+    x_list.extend(range(number_epochs))
 
     plt.figure(2,figsize=(15,4))
     plt.plot(model_history['acc'])
@@ -210,7 +233,7 @@ def plot_accuracy_loss(model_history, number_epochs):
     plt.xticks(x_list)
     plt.tight_layout()
     plt.legend(['train', 'test'], loc='upper left')
-    plt.savefig('data_plots/model_accuracy_img_fake_vs_real.jpg')
+    plt.savefig("data_plots/"+model_name+"_acc.jpg")
 
     plt.figure(3,figsize=(15,4))
     plt.plot(model_history['loss'], color='green')
@@ -221,22 +244,17 @@ def plot_accuracy_loss(model_history, number_epochs):
     plt.xticks(x_list)
     plt.tight_layout()
     plt.legend(['train', 'test'], loc='upper left')
-    plt.savefig('data_plots/model_loss_img_fake_vs_real.jpg')
+    plt.savefig("data_plots/"+model_name+"_loss.jpg")
 
 test_df = pd.read_csv('datasets/image_data_1/test.csv')
 train_df = pd.read_csv('datasets/image_data_1/train.csv')
 valid_df = pd.read_csv('datasets/image_data_1/valid.csv')
 
-#data_details("datasets/image_data_1/real_vs_fake")
-# def binary_dataset_creation(batch_size, img_height, img_width, from_dataframe, dataframe = None, file_path = None):
 test_generator = binary_dataset_creation(32, 256, 256, True, False, dataframe=test_df)
 train_generator = binary_dataset_creation(32, 256, 256, True, False, dataframe=train_df)
 valid_generator = binary_dataset_creation(32, 256, 256, True, False, dataframe=valid_df)
 
-#print(train_generator.class_indices)
-#print(train_generator.image_shape)
-
-epochs = 50
+epochs = 10
 #path_list = valid_df['path'].tolist()
 #history, model = img_classification_model(train_generator, valid_generator, epochs, "image_classification_ConvNet_image_data_1")
 #model = load_model("models/image_classification_ConvNet_image_data_1.h5")
@@ -259,21 +277,20 @@ for fldr in os.listdir(folder_path):
             extensions.append(filee.split('.')[1])"""
 
 train_generator, valid_generator = binary_dataset_creation(32, 256, 256, False, True, file_path="datasets/image_data_2")
-print(train_generator.class_indices)
-print(train_generator.image_shape)
 
-print(valid_generator.class_indices)
-print(valid_generator.image_shape)
+model_name = "image_classification_ConvNet_image_data_2"
+#history, model = img_classification_model(train_generator, valid_generator, epochs, model_name)
+model = load_model("models/"+model_name+".h5")
+history=np.load("model_history/"+model_name+".npy",allow_pickle='TRUE').item()
+plot_accuracy_loss(history, epochs, model_name)
 
-#history, model = img_classification_model(train_generator, valid_generator, epochs, "image_classification_ConvNet_image_data_2")
-model = load_model("models/image_classification_ConvNet_image_data_2.h5")
-history=np.load('model_history/image_classification_ConvNet_image_data_2.npy',allow_pickle='TRUE').item()
-plot_accuracy_loss(history, epochs)
+x_test, y_test = next(valid_generator)
 
 path_list = []
-for file in train_generator.filenames:
+for file in valid_generator.filenames:
     path_list.append("datasets\\image_data_2\\"+file)
 
-extracting_lime_explanation(path_list)
+labels = list(train_generator.class_indices.keys())
+extracting_lime_explanation(model, path_list, labels)
 
 
