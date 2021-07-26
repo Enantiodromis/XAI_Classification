@@ -1,37 +1,17 @@
 ###########
 # IMPORTS #
 ###########
-import json
-import os
 import pathlib
-import pickle
-import random
-from time import time
 
 import numpy as np
 import pandas as pd
 import PIL
 import PIL.Image
-import tensorflow as tf
-from keras.applications import inception_v3 as inc_net
-from keras.backend import exp
-from keras.layers import (Activation, Conv2D, Dense, Dropout, Flatten,
-                          MaxPool2D, MaxPooling2D)
-from keras.models import Sequential
-from keras.preprocessing import image
-from keras.preprocessing.image import ImageDataGenerator
-from lime import lime_image
-from lime.wrappers.scikit_image import SegmentationAlgorithm
-from matplotlib import pyplot as plt
-from numpy.core.fromnumeric import ravel
-from scipy.ndimage import interpolation
-from skimage import segmentation
-from skimage.color import label2rgb
-from skimage.color.colorconv import gray2rgb, rgb2gray
-from sklearn.utils import shuffle
-from keras.models import load_model
+from keras.layers import Conv2D, Dense, Flatten, MaxPool2D
+from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
-
+from keras.preprocessing.image import ImageDataGenerator
+from matplotlib import pyplot as plt
 
 ################
 # DATA DETAILS #

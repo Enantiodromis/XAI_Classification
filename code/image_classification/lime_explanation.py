@@ -8,22 +8,34 @@ from matplotlib import pyplot as plt
 from image_classification_core import binary_dataset_creation, img_classification_model, plot_accuracy_loss
 from keras.models import load_model
 
+# Used to confirm if GPU is being leveraged for the running of the model.
+# Uncomment line 12 and 13 to see which devices are being used by tensorflow.
+#from tensorflow.python.client import device_lib
+#print(device_lib.list_local_devices())
+
 ###############################
 # EXTRACTING LIME EXPLANATION #
 ###############################
+# +------------------------------------------------------+
+# + Function inputs:                                     +
+# +    - TensorFlow classification model                 +
+# +    - A image_generator to create explanations from   +
+# +------------------------------------------------------+
+# + Function outputs:                                    +
+# +     -                                                +
+# +------------------------------------------------------+
 def extracting_lime_explanation(model, path_list, labels):
 
-    def transform_img_fn(path_list):
-        out = []
-        for img_path in path_list:
-            img = image.load_img(img_path, target_size=(256, 256))
-            x = image.img_to_array(img)
-            x = np.expand_dims(x, axis=0)
-            x = inc_net.preprocess_input(x)
-            out.append(x)
-        return np.vstack(out)
-    from keras.applications.imagenet_utils import decode_predictions
-    images = transform_img_fn(path_list)
+    #def transform_img_fn(path_list):
+    out = []
+    for img_path in path_list:
+        img = image.load_img(img_path, target_size=(256, 256))
+        x = image.img_to_array(img)
+        x = np.expand_dims(x, axis=0)
+        x = inc_net.preprocess_input(x)
+        out.append(x)
+    images = np.vstack(out)
+    #images = transform_img_fn(path_list)
 
     def lime_explainer_image():
         # Message
@@ -73,11 +85,11 @@ valid_generator = binary_dataset_creation(32, 256, 256, True, False, dataframe=v
 
 path_list_1 = valid_df['path'].tolist()
 labels_1 = list(valid_generator.class_indices.keys())
-model_name = "image_classification_ConvNet_image_data_1"
-#model = load_model("models/image_classification_ConvNet.h5")
+model_name = "lime_xai_image_classification_ConvNet"
+model = load_model("models/lime_xai_image_classification_ConvNet.h5")
 
 #extracting_lime_explanation(model, path_list_1, labels_1)
-history, model = img_classification_model(train_generator, valid_generator, 50, model_name)
+#history, model = img_classification_model(train_generator, valid_generator, 50, model_name)
 
 extracting_lime_explanation(model, path_list_1, labels_1)
 #history=np.load('model_history/image_classification_ConvNet_image_data_1.npy',allow_pickle='TRUE').item()
