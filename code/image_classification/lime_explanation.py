@@ -1,12 +1,16 @@
 import random
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from keras.applications import inception_v3 as inc_net
+from keras.models import load_model
 from keras.preprocessing import image
 from lime import lime_image
 from matplotlib import pyplot as plt
-from image_classification_core import binary_dataset_creation, img_classification_model, plot_accuracy_loss
-from keras.models import load_model
+
+from image_classification_core import (binary_dataset_creation,
+                                       img_classification_model,
+                                       plot_accuracy_loss)
 
 # Used to confirm if GPU is being leveraged for the running of the model.
 # Uncomment line 12 and 13 to see which devices are being used by tensorflow.

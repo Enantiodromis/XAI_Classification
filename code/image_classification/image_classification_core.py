@@ -13,6 +13,7 @@ from keras.optimizers import RMSprop
 from keras.preprocessing.image import ImageDataGenerator
 from matplotlib import pyplot as plt
 
+
 ################
 # DATA DETAILS #
 ################
@@ -133,7 +134,7 @@ def img_classification_model(train_generator, test_generator, number_epochs, fil
 
     history = model.fit(
         train_generator,
-        steps_per_epoch=len(train_generator) ,
+        steps_per_epoch=len(train_generator),
         epochs=number_epochs,
         validation_data=test_generator,
         validation_steps=len(test_generator),
@@ -169,14 +170,6 @@ def plot_accuracy_loss(model_history, number_epochs, model_name):
     plt.legend(['train', 'test'], loc='upper left')
     plt.savefig("data_plots/"+model_name+"_loss.jpg")
 
-"""
-x_test, y_test = next(valid_generator)
-path_list_2 = []
-for file in valid_generator.filenames:
-    path_list_2.append("datasets\\image_data_2\\"+file)
-
-labels_2 = list(valid_generator.class_indices.keys())
-"""
 
 """import os
 from PIL import Image
