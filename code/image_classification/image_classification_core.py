@@ -13,7 +13,6 @@ from keras.optimizers import RMSprop
 from keras.preprocessing.image import ImageDataGenerator
 from matplotlib import pyplot as plt
 
-
 ################
 # DATA DETAILS #
 ################
@@ -114,7 +113,7 @@ def binary_dataset_creation(batch_size, img_height, img_width, from_dataframe, n
 #######################################
 # BUILD, TRAIN AND EVALUATE THE MODEL #
 #######################################
-def img_classification_model(train_generator, test_generator, number_epochs, files_name):
+def img_classification_model(train_generator, test_generator, number_epochs, model_name):
     model = Sequential()
     model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(256, 256, 3)))
     model.add(MaxPool2D(2, 2))
@@ -134,13 +133,13 @@ def img_classification_model(train_generator, test_generator, number_epochs, fil
 
     history = model.fit(
         train_generator,
-        steps_per_epoch=len(train_generator),
+        steps_per_epoch=len(train_generator) / train_generator.batch_size,
         epochs=number_epochs,
         validation_data=test_generator,
         validation_steps=len(test_generator),
     )
-    np.save('model_history/'+files_name+'.npy',history.history)
-    model.save('models/'+files_name+'.h5') 
+    np.save('model_history/'+model_name+'.npy',history.history)
+    model.save('models/'+model_name+'.h5') 
 
     return history, model
 
@@ -169,7 +168,6 @@ def plot_accuracy_loss(model_history, number_epochs, model_name):
     plt.tight_layout()
     plt.legend(['train', 'test'], loc='upper left')
     plt.savefig("data_plots/"+model_name+"_loss.jpg")
-
 
 """import os
 from PIL import Image

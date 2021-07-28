@@ -47,14 +47,12 @@ def extracting_lime_explanation(model, path_list, labels):
         
         # Create explainer 
         explainer = lime_image.LimeImageExplainer()
-
         from skimage.segmentation import mark_boundaries  
-        
         random_indexes = random.sample(range(1,len(images)),2)
+
         for index in random_indexes:
             # Set up the explainer
-            explanation = explainer.explain_instance(images[index].astype('double'), classifier_fn= model.predict,labels=(0,1),
-                                                top_labels = 2, hide_color = 0, num_samples = 1000)
+            explanation = explainer.explain_instance(images[index].astype('double'), classifier_fn = model.predict, labels = (0,1),top_labels = 2, hide_color = 0, num_samples = 1000)
 
             temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=True, num_features=5, hide_rest=True)
             fig, (ax1, ax2, ax3) = plt.subplots(1,3, figsize = (10, 4))

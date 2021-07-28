@@ -18,7 +18,8 @@ from tensorflow.python.ops.gen_math_ops import Max
 from keras.preprocessing.image import ImageDataGenerator
 from sklearn import preprocessing
 from PIL import Image, ImageOps
-
+import os
+from tifffile import imsave
 
 from image_classification_core import (binary_dataset_creation,
                                        img_classification_model,
@@ -51,15 +52,15 @@ def extracting_CEMExplainer_explanation(classifier_model, image_generator, autoe
     # Extracting the image path lists from the image 
     path_list = []
     for file in image_generator.filenames:
-        path_list.append("datasets/image_data_2/"+file)
+        path_list.append("datasets_normalised/image_data_2/"+file)
 
     images = []
     for img_path in path_list:
         img = image.load_img(img_path, target_size=(256, 256))
-        x = image.img_to_array(img)
+        img = image.img_to_array(img)
         # x = np.expand_dims(x, axis=0)
         # x = inc_net.preprocess_input(x)
-        images.append(x)
+        images.append(img)
     input_image = images[1]
 
     print(np.min(input_image))
@@ -71,8 +72,8 @@ def extracting_CEMExplainer_explanation(classifier_model, image_generator, autoe
 
     # Obtaining pertinent negative (PN) explanation
     arg_mode = "PN" # Find pertinent negative
-    arg_max_iter = 1000 # Maximum number of iterations to search for the optimal PN for given parameter settings
-    arg_init_const = 10.0 # Initial coefficient value for main loss term that encourages class change
+    arg_max_iter = 5000 # Maximum number of iterations to search for the optimal PN for given parameter settings
+    arg_init_const = 20.0 # Initial coefficient value for main loss term that encourages class change
     arg_b = 9 # Number of updates to the coefficient of the main loss term
     arg_kappa = 0.5 # Minimum confidence gap between the PNs (changed) class probability and original class probability
     arg_beta = 1e-1 # Controls sparsity of the solution (L1 loss)
@@ -134,54 +135,45 @@ def conv_autoencoder(train_generator, test_generator, epochs, model_name):
 
     return autoencoder
 
-def normalising_img_data(path_list, saving_file):
-    images = []
-    for img_path in path_list[:2]:
-        img = Image.open(img_path)
+def normalising_img_data(path_list, saving_parent_folder, saving_child_folder):
+    for index in range(len(path_list)):
+        img = Image.open(path_list[index])
         img = ImageOps.grayscale(img)
         img = np.array(img)
         img = img.astype('float32')
-        img = (img / 255.0)-0.5
-        img = (img * 255).astype(np.uint8)
-        img = Image.fromarray(img)
-        img.save("test.jpg")
-        images.append(img)
-    #print(preprocessing.minmax_scale(input_image, feature_range=(-0.5, 0.5)))
-
+        img = ((img / 255.0)-0.5)
+        if os.path.exists(saving_parent_folder+"/"+saving_child_folder[index]) == True:
+            os.remove(saving_parent_folder+"/"+saving_child_folder[index])
+        tiff_images = saving_child_folder[index].replace("jpg","tiff")
+        save_tiff = saving_parent_folder+"/"+tiff_images
+        imsave(save_tiff,img)
 
 ############################################
 # INITIALISING MODEL & EXPLAINER VARIBALES #
 ############################################
-# Creating the necessary image generators to train and test the model
-train_generator, test_generator = binary_dataset_creation(32, 256, 256, False, True, file_path="datasets/image_data_2") 
-model_name = "ceme_xai_image_classification_ConvNet" # Initialising a model name
-#history, model = img_classification_model(train_generator, test_generator, 10, model_name) # Training the model
-
-cat_dog_classification_model = load_model("models/ceme_xai_image_classification_ConvNet.h5") # Loading the saved model
-autoencoder = conv_autoencoder(train_generator, test_generator, 10, model_name)
-
-path_list = []
-for file in train_generator.filenames:
-    path_list.append("datasets/image_data_2/"+file)
-
-normalising_img_data(path_list, "datasets/image_data_2/" )
-
-"""import os
-from PIL import Image
 folder_path = 'datasets/image_data_2'
-extensions = []
+parent_path = 'datasets_normalised/image_data_2'
+file_paths = []
+sub_paths = []
 for fldr in os.listdir(folder_path):
     sub_folder_path = os.path.join(folder_path, fldr)
     for filee in os.listdir(sub_folder_path):
         file_path = os.path.join(sub_folder_path, filee)
-        print('** Path: {}  **'.format(file_path), end="\r", flush=True)
-        im = Image.open(file_path)
-        rgb_im = im.convert('RGB')
-        if filee.split('.')[1] not in extensions:
-            extensions.append(filee.split('.')[1])"""
+        sub_path = os.path.join(fldr,filee)
+        sub_paths.append(sub_path)
+        file_paths.append(file_path)
+
+normalising_img_data(file_paths, parent_path, sub_paths)
+
+# Creating the necessary image generators to train and test the model
+train_generator, test_generator = binary_dataset_creation(32, 256, 256, False, True, file_path=folder_path) 
+model_name = "ceme_xai_image_classification_ConvNet" # Initialising a model name
+#history, model = img_classification_model(train_generator, test_generator, 20, model_name) # Training the model
+#history=np.load("model_history/"+model_name+".npy",allow_pickle='TRUE').item() # Loading the training history to be used for plotting
+cat_dog_classification_model = load_model("models/ceme_xai_image_classification_ConvNet.h5") # Loading the saved model
+#plot_accuracy_loss(history, 20, model_name) # Plotting the training history and saving the plots
+autoencoder = conv_autoencoder(train_generator, test_generator, 20, model_name)
 #extracting_CEMExplainer_explanation(cat_dog_classification_model, train_generator, autoencoder)
 
-#labels_2 = list(valid_generator.class_indices.keys())
 
-# history=np.load("model_history/"+model_name+".npy",allow_pickle='TRUE').item() # Loading the training history to be used for plotting
-# plot_accuracy_loss(history, 10, model_name) # Plotting the training history and saving the plots
+
