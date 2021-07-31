@@ -67,7 +67,7 @@ def data_processing(data, labels, validation_split):
     print("Loading and splitting data...")
 
     X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size = validation_split, random_state=1)
-    
+
     X_train_cpy = X_train
     X_test_cpy = X_test
     y_test_cpy = y_test
@@ -92,11 +92,11 @@ def data_processing(data, labels, validation_split):
     encoder = LabelBinarizer()
     y_train = encoder.fit_transform(y_train)
     y_test = encoder.fit_transform(y_test)
-
-    #print('Shape of x train tensor:', X_train.shape)
-    #print('Shape of x test tensor:', X_test.shape)
-    #print('Shape of y train tensor:', y_train.shape)
-    #print('Shape of y test tensor:', y_test.shape)
-    #print(y_test)
-
+    
+    print('Shape of x train tensor:', X_train.shape)
+    print('Shape of x test tensor:', X_test.shape)
+    print('Shape of y train tensor:', y_train.shape)
+    print('Shape of y test tensor:', y_test.shape)
+    print('Classes:',encoder.classes_)
+    
     return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer
