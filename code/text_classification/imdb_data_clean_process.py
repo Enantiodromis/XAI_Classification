@@ -49,7 +49,6 @@ def data_preprocessing(dataframe, x_column):
 
     """# Lemmatization, reducing inflected words to their word stem ensuring the root word belongs to the language
     lemmatizer = WordNetLemmatizer()
-
     wordnet_map = {"N":wordnet.NOUN, "V":wordnet.VERB, "J":wordnet.ADJ, "R":wordnet.ADV} # Pos tag, used Noun, Verb, Adjective and Adverb
     # Function for lemmatization using POS tag
     def lemmatize_text(text):
@@ -100,3 +99,7 @@ def data_processing(data, labels, validation_split):
     print('Classes:',encoder.classes_)
     
     return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer
+
+    
+    
+    

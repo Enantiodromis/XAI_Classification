@@ -2,7 +2,6 @@
 # IMPORTS #
 ###########
 import pathlib
-
 import numpy as np
 import pandas as pd
 import PIL
@@ -12,36 +11,6 @@ from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
 from keras.preprocessing.image import ImageDataGenerator
 from matplotlib import pyplot as plt
-
-################
-# DATA DETAILS #
-################
-def data_details(data_path):
-    data_dir = pathlib.Path(data_path)
-    tt_list = ["train", "test", "valid"]
-    for test_or_train in tt_list:
-        if test_or_train == "train":
-            print("#########################")
-            print("# Training data details #")
-            print("#########################")
-        if test_or_train == "test":
-            print("########################")
-            print("# Testing data details #")
-            print("########################")
-        if test_or_train == "valid":
-            print("###########################")
-            print("# Validation data details #")
-            print("###########################")
-
-        real_path = test_or_train+'/real/*.jpg'
-        image_count_real = len(list(data_dir.glob(real_path)))
-        print("Number of real images in the %s dataset:" % test_or_train, image_count_real)
-        
-        fake_path = test_or_train+'/fake/*.jpg'
-        image_count_fake = len(list(data_dir.glob(fake_path)))
-        print("Number of fake images in the %s dataset:" % test_or_train, image_count_fake)
-        print("Total number of images:", image_count_real+image_count_fake)
-        print("")
 
 ####################
 # DATASET CREATION #
@@ -128,18 +97,18 @@ def img_classification_model(train_generator, test_generator, number_epochs, mod
     model.add(Dense(1, activation='sigmoid'))
 
     model.compile(loss='binary_crossentropy',
-                optimizer=RMSprop(lr=1e-4),
+                optimizer=RMSprop(learning_rate=1e-3),
                 metrics=['acc'])
 
     history = model.fit(
         train_generator,
-        steps_per_epoch=len(train_generator) / train_generator.batch_size,
+        steps_per_epoch=(len(train_generator) / train_generator.batch_size),
         epochs=number_epochs,
         validation_data=test_generator,
         validation_steps=len(test_generator),
     )
     np.save('model_history/'+model_name+'.npy',history.history)
-    model.save('models/'+model_name+'.h5') 
+    model.save('models/image_models/'+model_name+'.h5') 
 
     return history, model
 

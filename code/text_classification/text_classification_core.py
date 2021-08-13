@@ -43,7 +43,7 @@ def lstm_model(vocab_size, X_train, y_train, X_test, y_test, number_epochs, batc
 
     # Saving the model
     np.save('model_history/'+model_name+'.npy',history.history)
-    model.save("models/"+model_name+".h5")
+    model.save("models/text_models/"+model_name+".h5")
     
     return history, model
 
