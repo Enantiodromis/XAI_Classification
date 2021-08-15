@@ -39,10 +39,10 @@ def lstm_model(vocab_size, X_train, y_train, X_test, y_test, number_epochs, batc
     model.summary() # Printing 
     model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
  
-    history = model.fit(X_train, y_train, batch_size, epochs=number_epochs, validation_data=(X_test, y_test))
+    history = model.fit(X_train, y_train, batch_size = batch_size, epochs=number_epochs, validation_data=(X_test, y_test))
 
     # Saving the model
-    np.save('model_history/'+model_name+'.npy',history.history)
+    np.save('model_history/'+model_name+'.npy',history.history) 
     model.save("models/text_models/"+model_name+".h5")
     
     return history, model

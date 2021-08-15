@@ -3,7 +3,7 @@ from emot.emo_unicode import EMOTICONS, UNICODE_EMO
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
 from nltk import pos_tag
-from nltk.corpus import stopwords, wordnet
+from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
@@ -12,7 +12,7 @@ import numpy as np
 #################
 # DATA CLEANING #
 #################
-def data_preprocessing(dataframe, x_column):
+def imdb_data_preprocessing(dataframe, x_column):
     print("Processing data...")
 
     # Dropping empty cells from dataframe
@@ -45,7 +45,7 @@ def data_preprocessing(dataframe, x_column):
 
     # Importing english stopwords from nltk library and removing from dataframe
     eng_stopwords = set(stopwords.words('english'))
-    x_column = x_column.apply(lambda x: ' '.join([word for word in x.split() if word not in (eng_stopwords)]))
+    x_column = x_column.apply(lambda x: [word for word in x.split() if word not in (eng_stopwords)])
 
     """# Lemmatization, reducing inflected words to their word stem ensuring the root word belongs to the language
     lemmatizer = WordNetLemmatizer()
@@ -62,7 +62,7 @@ def data_preprocessing(dataframe, x_column):
 ###################
 # DATA PROCESSING #
 ###################
-def data_processing(data, labels, validation_split):
+def imdb_data_processing(data, labels, validation_split):
     print("Loading and splitting data...")
 
     X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size = validation_split, random_state=1)
