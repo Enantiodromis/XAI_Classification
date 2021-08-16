@@ -1,48 +1,50 @@
-import numpy as np
-import pandas as pd
 import re
 from emot.emo_unicode import EMOTICONS, UNICODE_EMO
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
-from nltk import pos_tag
 from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
+import pandas as pd
 
 def dataset_2_build():
-    print("Building data...")
-    fake_news = pd.read_csv("datasets/text_data/text_data_2/Fake.csv")
-    fake_news["fake"] = 1
-    real_news = pd.read_csv("datasets/text_data/text_data_2/True.csv")
-    real_news["fake"] = 0
+    print("Fetching data...")
 
+    # Reading in both data as dataframes
+    fake_news = pd.read_csv("datasets/text_data/text_data_2/Fake.csv")
+    fake_news["fake"] = 0
+    real_news = pd.read_csv("datasets/text_data/text_data_2/True.csv")
+    real_news["fake"] = 1
+
+    # Concatenating both dataframes together
     news = pd.concat([fake_news, real_news])
 
+    # Combining the title and text columns into the text column
     news['text'] = news['title'] + news['text']
+    # Dropping the no longer needed title column from the dataframe
     news.drop(labels=['title'], axis=1, inplace=True)
-
+    # Dropping the subject and date columns from the dataframe as they are not used for classification purposes
     news.drop(labels=['subject', 'date'], axis=1, inplace=True)
 
+    # Randomly shuffling the final dataframe instances
     news = news.sample(frac=1)
-    feature_text = news['text']
-    target = news['fake']
 
+    # Returning the dataframe
     return news
 
-def dataset_2_data_preprocessing(dataframe):
+def dataset_2_preprocessing(dataframe):
     print("Processing data...")
-    
-    news = dataframe.sample(frac=1)
-    feature_text = news['text']
-    target = news['fake']
 
     # Dropping empty cells from dataframe
-    dataframe = dataframe.dropna()
+    dataframe.dropna( inplace=True)
+
+    # Isolating the column with "X_data"
+    feature_text = dataframe['text']
+    # Isolating the column with "Y_data"
+    target = dataframe['fake']
 
     # Coverting text to lowercase
     x_column = feature_text.str.lower()
-    x_column.dropna(inplace=True)
     
     # Defining regular expressions:
     html_regex = re.compile(r'<.*?>') # HTML tag regular expression, <br>  
@@ -64,41 +66,45 @@ def dataset_2_data_preprocessing(dataframe):
     eng_stopwords = set(stopwords.words('english'))
     x_column = x_column.apply(lambda x: [word for word in x.split() if word not in (eng_stopwords)])
 
+    # Returning rows associated with X and Y data
     return x_column, target
 
-def dataset_2_data_processing(data, labels, validation_split):
-    print("Loading and splitting data...")
+def get_dataset_2(validation_split):
+    # Calling the build function and using the returned value to call the preprocessing function
+    df_2 = dataset_2_build()
+    X_data, y_data = dataset_2_preprocessing(df_2)
 
-    X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size = validation_split, random_state=1)
+    print("Tokenising and splitting data...")
+
+    # The returned X and Y data from the preprocessing function is used in the get_dataset function
     
-    X_train_cpy = X_train
-    X_test_cpy = X_test
-    y_test_cpy = y_test
+    # Creating train and test data using train_test_split, the validatation split is defined by the user.
+    X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size = validation_split, random_state=1)
 
+    # Defining a vocab_size of 20000
     vocab_size = 20000
+
+    # Initialising the tokenizer with the defined vocab_size
     tokenizer = Tokenizer(vocab_size)
+    # Fitting the tokenizer to the X data
     tokenizer.fit_on_texts(X_train)
+    # Converting the X data from text to sequences
     sequences_train = tokenizer.texts_to_sequences(X_train)
     sequences_test = tokenizer.texts_to_sequences(X_test)
 
     # Defining the word index
     word_index = tokenizer.word_index
-    print("Unique words: {}".format(len(word_index)))
 
-    # Get max training sequence length
+    # Defining a max training sequence length
     #max_sequence_length = max([len(x) for x in sequences_train])
     max_sequence_length = 30
     X_train = pad_sequences(sequences_train, maxlen=max_sequence_length)
     X_test = pad_sequences(sequences_test, maxlen=max_sequence_length)
 
+    # Initialising a binarizer
     encoder = LabelBinarizer()
+    # Fitting the binarizer to the labels of both the train and test data
     y_train = encoder.fit_transform(y_train)
     y_test = encoder.fit_transform(y_test)
     
-    print('Shape of x train tensor:', X_train.shape)
-    print('Shape of x test tensor:', X_test.shape)
-    print('Shape of y train tensor:', y_train.shape)
-    print('Shape of y test tensor:', y_test.shape)
-    print('Classes:',encoder.classes_)
-    
-    return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer
+    return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer

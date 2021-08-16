@@ -2,25 +2,36 @@ import re
 from emot.emo_unicode import EMOTICONS, UNICODE_EMO
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
-from nltk import pos_tag
-from nltk.corpus import stopwords, wordnet
-from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
-import numpy as np
+import pandas as pd
+from tensorflow.python.ops.gen_array_ops import inplace_add
 
+#################
+# DATA BUILD #
+#################
+def dataset_3_build():
+    print("Fetching data...")
+    df_data_3 = pd.read_csv("datasets/text_data/text_data_3/amazon_yelp_twitter.csv")
+    df_data_3.columns = ['sentiment', 'text']
+
+    return df_data_3
 #################
 # DATA CLEANING #
 #################
-def dataset_3_data_preprocessing(dataframe, x_column):
+def dataset_3_preprocessing(dataframe):
     print("Processing data...")
 
     # Dropping empty cells from dataframe
-    dataframe.dropna(inplace=True)
+    dataframe.dropna(how='any', inplace=True)
+
+    x_column = dataframe['text']
+    y_data = dataframe['sentiment']
 
     # Coverting text to lowercase
-    x_column.str.lower(inplace=True)
-    x_column.dropna(inplace=True)
+    x_column = x_column.str.lower()
+    x_column.dropna(inplace = True)
     
     # Defining regular expressions:
     html_regex = re.compile(r'<.*?>') # HTML tag regular expression, <br>  
@@ -38,23 +49,22 @@ def dataset_3_data_preprocessing(dataframe, x_column):
     x_column = x_column.str.replace(punctuation_regex,'',regex=True)
     x_column = x_column.str.replace(numbers_regex,'',regex=True)
 
-    # Importing english stopwords from nltk library and removing from dataframe
-    eng_stopwords = set(stopwords.words('english'))
-    x_column = x_column.apply(lambda x: [word for word in x.split() if word not in (eng_stopwords)])
-
-    return dataframe, x_column
+    return x_column, y_data
 
 ###################
 # DATA PROCESSING #
 ###################
-def dataset_3_data_processing(data, labels, validation_split):
-    print("Loading and splitting data...")
+def get_dataset_3(validation_split, sample_size):
+    
+    df_3 = dataset_3_build()
+    sampled_df_3 = df_3.sample(sample_size)
+    X_data, y_data = dataset_3_preprocessing(sampled_df_3)
 
-    X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size = validation_split, random_state=1)
+    print(X_data.shape[0])
+    print(y_data.shape[0])
 
-    X_train_cpy = X_train
-    X_test_cpy = X_test
-    y_test_cpy = y_test
+    print("Tokenising and splitting data...")
+    X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size = validation_split, random_state=1)
 
     vocab_size = 20000
 
@@ -65,9 +75,8 @@ def dataset_3_data_processing(data, labels, validation_split):
 
     # Defining the word index
     word_index = tokenizer.word_index
-    print("Unique words: {}".format(len(word_index)))
 
-    max_sequence_length = 30
+    max_sequence_length = 5
     X_train = pad_sequences(sequences_train, maxlen=max_sequence_length)
     X_test = pad_sequences(sequences_test, maxlen=max_sequence_length)
 
@@ -75,10 +84,4 @@ def dataset_3_data_processing(data, labels, validation_split):
     y_train = encoder.fit_transform(y_train)
     y_test = encoder.fit_transform(y_test)
     
-    print('Shape of x train tensor:', X_train.shape)
-    print('Shape of x test tensor:', X_test.shape)
-    print('Shape of y train tensor:', y_train.shape)
-    print('Shape of y test tensor:', y_test.shape)
-    print('Classes:',encoder.classes_)
-    
-    return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer
+    return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer

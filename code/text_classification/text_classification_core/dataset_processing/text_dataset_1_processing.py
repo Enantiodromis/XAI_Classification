@@ -2,21 +2,36 @@ import re
 from emot.emo_unicode import EMOTICONS, UNICODE_EMO
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
-from nltk import pos_tag
 from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
-import numpy as np
+import pandas as pd
+
+##############
+# DATA BUILD #
+##############
+def dataset_1_build():
+    print("Fetching data...")
+    
+    # Reading in data as dataframe
+    text_df = pd.read_csv("datasets/text_data/text_data_1/IMDB Dataset.csv")
+
+    # Returning dataframe object
+    return text_df
 
 #################
 # DATA CLEANING #
 #################
-def imdb_data_preprocessing(dataframe, x_column):
+def dataset_1_preprocessing(dataframe):
     print("Processing data...")
 
     # Dropping empty cells from dataframe
-    dataframe = dataframe.dropna()
+    dataframe.dropna(inplace=True)
+
+    # Isolating the column with "X_data"
+    x_column = dataframe['review']
+    # Isolating the column with "Y_data"
+    y_data = dataframe['sentiment']
 
     # Coverting text to lowercase
     x_column = x_column.str.lower()
@@ -47,58 +62,51 @@ def imdb_data_preprocessing(dataframe, x_column):
     eng_stopwords = set(stopwords.words('english'))
     x_column = x_column.apply(lambda x: [word for word in x.split() if word not in (eng_stopwords)])
 
-    """# Lemmatization, reducing inflected words to their word stem ensuring the root word belongs to the language
-    lemmatizer = WordNetLemmatizer()
-    wordnet_map = {"N":wordnet.NOUN, "V":wordnet.VERB, "J":wordnet.ADJ, "R":wordnet.ADV} # Pos tag, used Noun, Verb, Adjective and Adverb
-    # Function for lemmatization using POS tag
-    def lemmatize_text(text):
-        pos_tagged_text = pos_tag(text.split())
-        return " ".join([lemmatizer.lemmatize(word, wordnet_map.get(pos[0], wordnet.NOUN)) for word, pos in pos_tagged_text])
-        
-    x_column = x_column.apply(lemmatize_text)"""
-
-    return dataframe, x_column
+    # Returning rows associated with X and Y data
+    return  x_column, y_data
 
 ###################
 # DATA PROCESSING #
 ###################
-def imdb_data_processing(data, labels, validation_split):
-    print("Loading and splitting data...")
+def get_dataset_1(validation_split):
+    # Calling the build function and using the returned value to call the preprocessing function
+    df_1 = dataset_1_build()
+    X_data, y_data = dataset_1_preprocessing(df_1)
 
-    X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size = validation_split, random_state=1)
+    print("Tokenising and splitting data...")
 
-    X_train_cpy = X_train
-    X_test_cpy = X_test
-    y_test_cpy = y_test
+    # The returned X and Y data from the preprocessing function is used in the get_dataset function
+    
+    # Creating train and test data using train_test_split, the validatation split is defined by the user.
+    X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size = validation_split, random_state=1)
 
+    # Defining a vocab_size of 20000
     vocab_size = 20000
 
+    # Initialising the tokenizer with the defined vocab_size
     tokenizer = Tokenizer(vocab_size)
+    # Fitting the tokenizer to the X data
     tokenizer.fit_on_texts(X_train)
+    # Converting the X data from text to sequences
     sequences_train = tokenizer.texts_to_sequences(X_train)
     sequences_test = tokenizer.texts_to_sequences(X_test)
 
     # Defining the word index
     word_index = tokenizer.word_index
-    print("Unique words: {}".format(len(word_index)))
 
-    # Get max training sequence length
+    # Defining a max training sequence length
     #max_sequence_length = max([len(x) for x in sequences_train])
     max_sequence_length = 30
     X_train = pad_sequences(sequences_train, maxlen=max_sequence_length)
     X_test = pad_sequences(sequences_test, maxlen=max_sequence_length)
 
+    # Initialising a binarizer
     encoder = LabelBinarizer()
+    # Fitting the binarizer to the labels of both the train and test data
     y_train = encoder.fit_transform(y_train)
     y_test = encoder.fit_transform(y_test)
     
-    print('Shape of x train tensor:', X_train.shape)
-    print('Shape of x test tensor:', X_test.shape)
-    print('Shape of y train tensor:', y_train.shape)
-    print('Shape of y test tensor:', y_test.shape)
-    print('Classes:',encoder.classes_)
-    
-    return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer
+    return X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer
 
     
     

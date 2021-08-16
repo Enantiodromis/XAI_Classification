@@ -1,29 +1,31 @@
-import keras.backend as backend
-from keras.backend.cntk_backend import reverse
-import numpy as np
-import shap
-import pandas as pd
-from keras.models import load_model
-from text_classification_core import lstm_model, plot_accuracy_loss
-from dataset_processing.text_dataset_1_processing import imdb_data_preprocessing, imdb_data_processing
-from keras.preprocessing.text import Tokenizer
+import os
+import os.path
+import random
+
 import cntk as C
-import webbrowser
+from matplotlib.pyplot import show
+import numpy as np
+import pandas as pd
+import shap
+from keras.backend.cntk_backend import reverse
+from keras.models import load_model
+from keras_preprocessing.sequence import pad_sequences
+
+from text_classification_core.dataset_processing.text_dataset_1_processing import get_dataset_1
+from text_classification_core.dataset_processing.text_dataset_2_processing import get_dataset_2
+from text_classification_core.dataset_processing.text_dataset_3_processing import get_dataset_3
+
 
 ##################
 # SHAP EXPLAINER #
 ##################
-def shap_explainer(X_train_not_encoded, X_test_not_encoded, X_train_encoded, X_test_encoded, model, word_index, y_test_cpy, tokenizer):
+def shap_explainer(X_test, model, word_index, save_path):
     print("Loading SHAP Explanation...")
     # We use the first 100 training examples as our background dataset to integrate over
     # Initialising background for DeepExplainer
-    background = X_train_encoded[:100]
-    #print(background)
-    explainer = shap.DeepExplainer(model, background)
+    background = X_test[:100]
 
-    # Explain the first 10 predicitions
-    # Explaining each predicition requires 2*background dataset size runs
-    shap_values = explainer.shap_values(X_test_encoded[:1])
+    explainer = shap.DeepExplainer(model, background)
 
     # Creating a reverse dictionary
     reverse_word_map = dict(map(reversed, word_index.items()))
@@ -31,23 +33,45 @@ def shap_explainer(X_train_not_encoded, X_test_not_encoded, X_train_encoded, X_t
     # Function takes a tokenized sentence and returns the words
     def sequence_to_text(list_of_indices):
         # Looking up words in dictionary
-        words = [reverse_word_map.get(letter) for letter in list_of_indices]
+        words = [reverse_word_map.get(word) for word in list_of_indices]
         return words
+    my_texts = np.array(list(map(sequence_to_text, X_test)))
 
-    # Creating texts 
-    #np.stack([np.array(list(map(lambda x: num2word.get(x, "NONE"), x_test[i]))) for i in range(10)])
-    my_texts = np.array(list(map(sequence_to_text, X_test_encoded)))
-    shap.initjs()
-    shap.save_html("text_explanations/shap_text_explanations/test.html",shap.force_plot(explainer.expected_value[0], shap_values[0][0], my_texts[0]))
+    num_explanations = 3
+    # Explain the first 10 predicitions
+    # Explaining each predicition requires 2*background dataset size runs
+    shap_values = explainer.shap_values(X_test[:3])
 
-# Reading in the csv, containing the the csv data
-text_df = pd.read_csv("datasets/text_data/text_data_1/IMDB Dataset.csv")
-epoch_num = 3
-model_name = "xai_text_classification_data_1_lstm"
-text_df, text_df['review'] = imdb_data_preprocessing(text_df, text_df['review'])
-X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer = imdb_data_processing(text_df['review'], text_df['sentiment'],0.3)
-# history, model = lstm_model(vocab_size, X_train, y_train, X_test, y_test, epoch_num, 64, model_name)
-model = load_model("models/text_models/"+model_name+".h5")
-#history=np.load("model_history/"+model_name+".npy",allow_pickle='TRUE').item() # Loading the training history to be used for plotting
-#plot_accuracy_loss(history, epoch_num, model_name)
-shap_explainer(X_train_cpy, X_test_cpy, X_train, X_test, model, word_index, y_test_cpy, tokenizer)
+    for index in range(num_explanations):
+        shap.initjs()
+        shap.save_html(save_path+'explanation_'+str(index)+'.html', shap.force_plot(explainer.expected_value[0], shap_values[0][index], my_texts[index]))
+
+############################################
+# GENERATING EXPLAINATIONS FOR TEXT_DATA_1 #
+############################################
+class_names = ['negative', 'positive'] # The class names of the dataset, the order is important.
+save_path = 'text_explanations/shap_text_explanations/text_data_1/' # The filepath to save the related explanations.
+X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer = get_dataset_1(0.33) # Processing the data preparing for training
+model_name = "xai_text_classification_data_1_lstm" # Name of associated model
+model = load_model("models/text_models/"+model_name+".h5") # Loading the trained model.
+shap_explainer(X_test, model, word_index, save_path) # Generating a explanation.
+
+############################################
+# GENERATING EXPLAINATIONS FOR TEXT_DATA_2 #
+############################################
+class_names = ['fake', 'real'] # The class names of the dataset, the order is important.
+save_path = 'text_explanations/shap_text_explanations/text_data_2/' # The filepath to save the related explanations.
+X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer = get_dataset_2(0.33) # Processing the data preparing for training
+model_name = "xai_text_classification_data_2_lstm" # Name of associated model
+model = load_model("models/text_models/"+model_name+".h5") # Loading the trained model.
+shap_explainer(X_test, model, word_index, save_path) # Generating a explanation.
+
+############################################
+# GENERATING EXPLAINATIONS FOR TEXT_DATA_3 #
+############################################
+class_names = ['negative, positive'] # The class names of the dataset, the order is important.
+save_path = 'text_explanations/shap_text_explanations/text_data_3/' # The filepath to save the related explanations.
+X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer = get_dataset_3(0.3, 30000) # Processing the data preparing for training
+model_name = "xai_text_classification_data_3_lstm" # Name of associated model
+model = load_model("models/text_models/"+model_name+".h5") # Loading the trained model.
+shap_explainer(X_test, model, word_index, save_path) # Generating a explanation.

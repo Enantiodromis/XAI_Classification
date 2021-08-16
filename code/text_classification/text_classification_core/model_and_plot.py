@@ -1,24 +1,8 @@
-import re
-
-import math
-import keras
-import keras.backend as backend
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import shap
-import tensorflow
-from emot.emo_unicode import EMOTICONS, UNICODE_EMO
-from keras.layers import Dense, Bidirectional, Embedding, LSTM
-from keras.models import Input, Model, Sequential
-from keras.models import load_model
-from keras.preprocessing.sequence import pad_sequences
-from keras.preprocessing.text import Tokenizer
-from nltk import pos_tag
-from nltk.corpus import stopwords, wordnet
-from nltk.stem import WordNetLemmatizer
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelBinarizer
+from keras.layers import LSTM, Bidirectional, Dense, Embedding
+from keras.models import Input, Model
+
 
 #######################################
 # BUILD, TRAIN AND EVALUATE THE MODEL #
@@ -37,7 +21,7 @@ def lstm_model(vocab_size, X_train, y_train, X_test, y_test, number_epochs, batc
     outputs = Dense(1, activation="sigmoid")(x) # A sigmoid activation function as we are classifying binary data
     model = Model(inputs, outputs)
     model.summary() # Printing 
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+    model.compile(optimizer = "adam", loss="binary_crossentropy", metrics=["accuracy"])
  
     history = model.fit(X_train, y_train, batch_size = batch_size, epochs=number_epochs, validation_data=(X_test, y_test))
 

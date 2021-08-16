@@ -1,89 +1,85 @@
-import keras.backend as backend
-from keras_preprocessing.sequence import pad_sequences
-from nltk import text
-import numpy as np
-import pandas as pd
-from keras.models import load_model
-from text_classification_core import lstm_model, plot_accuracy_loss
-from imdb_data_clean_process import imdb_data_preprocessing, imdb_data_processing
-from dataset_2_data_clean_process import dataset_2_build, dataset_2_data_preprocessing, dataset_2_data_processing
-from dataset_3_data_clean_process import dataset_3_data_preprocessing, dataset_3_data_processing
-import webbrowser
-from lime.lime_text import LimeTextExplainer
-from pprint import pprint
-import json
-import matplotlib as plt
+import random
 
-##################
-# LIME EXPLAINER #
-##################
-def lime_explainer(X_test_encoded, model, word_index, tokenizer):
-    # Creating a reverse dictionary
+import keras.backend
+import numpy as np
+from keras.models import load_model
+from keras_preprocessing.sequence import pad_sequences
+from lime.lime_text import LimeTextExplainer
+
+from text_classification_core.dataset_processing.text_dataset_1_processing import get_dataset_1
+from text_classification_core.dataset_processing.text_dataset_2_processing import get_dataset_2
+from text_classification_core.dataset_processing.text_dataset_3_processing import get_dataset_3
+
+
+#######################
+# LIME TEXT EXPLAINER #
+#######################
+def lime_text_explainer(X_test_encoded, model, word_index, tokenizer, max_len, class_names, save_path):
+    
+    # Creating a dictionary of words to tokens.
     reverse_word_map = dict(map(reversed, word_index.items()))
 
-    # Function takes a tokenized sentence and returns the words
+    # Function which takes a tokenized sentence and returns the words.
     def sequence_to_text(list_of_indices):
-        # Looking up words in dictionary
-        words = [reverse_word_map.get(letter) for letter in list_of_indices]
+        # Iterates through the sequence and returns the associated words.
+        words = [str(reverse_word_map.get(word)) for word in list_of_indices]
+        # Returned words
         return words
+    # Calling the sequence_to_text method and applying it to all X_test data.
     my_texts = np.array(list(map(sequence_to_text, X_test_encoded)))
-    print(len(X_test_encoded))
     
-    explainer = LimeTextExplainer(class_names=['negative','positive'])
+    # The LimeTextExplainer required a wrapped prediction function.
     def wrapped_predict(strings):
+        # Converting string to explain back to a tokenized sequence. 
         cnn_rep = tokenizer.texts_to_sequences(strings)
-        text_data = pad_sequences(cnn_rep, maxlen=30)
-        return model.predict(text_data)
+        # Applying the original padding to the 
+        text_data = pad_sequences(cnn_rep, maxlen=max_len)
+        pred_list = model.predict(text_data)
+        pred_list_final = []
+        for index in range(len(pred_list)):
+            prediction = pred_list[index][0]
+            if prediction > 0.5:
+                pred_list_final.append(np.insert(pred_list[index], 0, (1-prediction)))
+            else: 
+                pred_list_final.append(np.insert(pred_list[index], 1, (1-prediction)))
+        pred_list_final = np.array(pred_list_final)
+        return pred_list_final
 
-    test_text = ' '.join(my_texts[5])
-    exp = explainer.explain_instance(test_text, wrapped_predict, num_features=10, top_labels=2) 
-    
-    exp.save_to_file('text_explanations/lime_text_explanations/lime_test_data3.html')
-    
-    """url = exp.as_html()
-    with open("test.html", "w", encoding="utf-8") as f:
-        f.write(url)
-    import webbrowser
-    filepath = "test.html"
-    webbrowser.open(filepath,new=2)"""
+    # Initialising the LimeTextExplainer
+    explainer = LimeTextExplainer(class_names=class_names)
 
-##############################################
-# INITIALISING MODEL & DATA FOR IMDB DATASET #
-##############################################
-"""# Reading in the csv, containing the the csv data
-text_df = pd.read_csv("datasets/text_data/text_data_1/IMDB Dataset.csv")
-model_name = "lime_xai_text_classification_data_1_lstm"
-text_df, text_df['review'] = imdb_data_preprocessing(text_df, text_df['review'])
-X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer = imdb_data_processing(text_df['review'], text_df['sentiment'],0.3)
-print(text_df.head())
-#history, model = lstm_model(vocab_size, X_train, y_train, X_test, y_test, 10, 64, model_name)
-model = load_model("models/text_models/"+model_name+".h5")
-#history=np.load("model_history/"+model_name+".npy",allow_pickle='TRUE').item() # Loading the training history to be used for plotting
-#plot_accuracy_loss(history, epoch_num, model_name)
-lime_explainer(X_test, model, word_index, tokenizer)"""
+    random_indexes = random.sample(range(1,len(X_test)),3)
+    for index in random_indexes:
+        test_text = ' '.join(my_texts[index])
+        exp = explainer.explain_instance(test_text, wrapped_predict, num_features=6, labels=(1,)) 
+        exp.save_to_file(save_path+'explanation_'+str(index)+'.html')
 
-##############################################
-# INITIALISING MODEL & DATA FOR IMDB DATASET #
-##############################################
-news_df = dataset_2_build()
-X_data, y_data = dataset_2_data_preprocessing(news_df)
-X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer = dataset_2_data_processing(X_data, y_data ,0.3)
-model_name = "xai_text_classification_data_3_lstm"
-history, model = lstm_model(vocab_size, X_train, y_train, X_test, y_test, 10, 32, model_name)
-model = load_model("models/text_models/"+model_name+".h5")
-lime_explainer(X_test, model, word_index, tokenizer)
+############################################
+# GENERATING EXPLAINATIONS FOR TEXT_DATA_1 #
+############################################
+class_names = ['negative', 'positive'] # The class names of the dataset, the order is important.
+save_path = 'text_explanations/lime_text_explanations/text_data_1/' # The filepath to save the related explanations.
+X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer = get_dataset_1(0.3) # Processing the data preparing for training
+model_name = "xai_text_classification_data_1_lstm" # Name of associated model
+model = load_model("models/text_models/"+model_name+".h5") # Loading the trained model.
+lime_text_explainer(X_test, model, word_index, tokenizer, max_sequence_length, class_names, save_path) # Generating a explanation.
 
+############################################
+# GENERATING EXPLAINATIONS FOR TEXT_DATA_2 #
+############################################
+class_names = ['fake', 'real'] # The class names of the dataset, the order is important.
+save_path = 'text_explanations/lime_text_explanations/text_data_2/' # The filepath to save the related explanations.
+X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer = get_dataset_2(0.3) # Processing the data preparing for training
+model_name = "xai_text_classification_data_2_lstm" # Name of associated model
+model = load_model("models/text_models/"+model_name+".h5") # Loading the trained model.
+lime_text_explainer(X_test, model, word_index, tokenizer, max_sequence_length, class_names, save_path) # Generating a explanation."""
 
-#############################################################
-# INITIALISING MODEL & DATA FOR AMAZON_YELP_TWITTER DATASET #
-#############################################################
-"""text_df_3 = pd.read_csv("datasets/text_data/text_data_3/amazon_yelp_twitter.csv")
-model_name = "lime_xai_text_classification_data_3_lstm"
-text_df_3.columns = ['sentiment', 'text']
-
-text_df_3, text_df_3['text'] = dataset_3_data_preprocessing(text_df_3, text_df_3['text'])
-X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, X_train_cpy, X_test_cpy, word_index, y_test_cpy, tokenizer = dataset_3_data_processing(text_df_3['text'], text_df_3['sentiment'],0.3)
-print(text_df_3.head())
-#history, model = lstm_model(vocab_size, X_train, y_train, X_test, y_test, 10, 64, model_name)
-#model = load_model("models/text_models/"+model_name+".h5")
-#lime_explainer(X_test, model, word_index, tokenizer)"""
+############################################
+# GENERATING EXPLAINATIONS FOR TEXT_DATA_3 #
+############################################
+class_names = ['negative', 'positive'] # The class names of the dataset, the order is important.
+save_path = 'text_explanations/lime_text_explanations/text_data_3/' # The filepath to save the related explanations.
+X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer = get_dataset_3(0.3, 40000) # Processing the data preparing for training
+model_name = "xai_text_classification_data_3_lstm" # Name of associated model
+model = load_model("models/text_models/"+model_name+".h5") # Loading the trained model.
+lime_text_explainer(X_test, model, word_index, tokenizer, max_sequence_length, class_names, save_path) # Generating a explanation.

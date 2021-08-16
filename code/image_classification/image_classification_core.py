@@ -1,16 +1,10 @@
-###########
-# IMPORTS #
-###########
-import pathlib
 import numpy as np
-import pandas as pd
-import PIL
-import PIL.Image
 from keras.layers import Conv2D, Dense, Flatten, MaxPool2D
-from keras.models import Sequential, load_model
-from keras.optimizers import RMSprop
+from keras.models import Sequential
+from keras.optimizers import rmsprop_v2
 from keras.preprocessing.image import ImageDataGenerator
 from matplotlib import pyplot as plt
+
 
 ####################
 # DATASET CREATION #
@@ -97,7 +91,7 @@ def img_classification_model(train_generator, test_generator, number_epochs, mod
     model.add(Dense(1, activation='sigmoid'))
 
     model.compile(loss='binary_crossentropy',
-                optimizer=RMSprop(learning_rate=1e-3),
+                optimizer=rmsprop_v2(learning_rate=1e-3),
                 metrics=['acc'])
 
     history = model.fit(
@@ -137,18 +131,3 @@ def plot_accuracy_loss(model_history, number_epochs, model_name):
     plt.tight_layout()
     plt.legend(['train', 'test'], loc='upper left')
     plt.savefig("data_plots/"+model_name+"_loss.jpg")
-
-"""import os
-from PIL import Image
-folder_path = 'datasets/image_data_2'
-extensions = []
-for fldr in os.listdir(folder_path):
-    sub_folder_path = os.path.join(folder_path, fldr)
-    for filee in os.listdir(sub_folder_path):
-        file_path = os.path.join(sub_folder_path, filee)
-        print('** Path: {}  **'.format(file_path), end="\r", flush=True)
-        im = Image.open(file_path)
-        rgb_im = im.convert('RGB')
-        if filee.split('.')[1] not in extensions:
-            extensions.append(filee.split('.')[1])"""
-

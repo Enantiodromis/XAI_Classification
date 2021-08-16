@@ -1,98 +1,89 @@
+from tensorflow.keras.backend import expand_dims
 import random
-
+import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-from keras.applications import inception_v3 as inc_net
 from keras.models import load_model
-from keras.preprocessing import image
-from lime import lime_image
-from matplotlib import pyplot as plt
+from keras.applications import inception_v3 as inc_net
+from alibi.explainers import AnchorImage
+from dataset_processing.image_dataset_1_processing import get_dataset_1
+from dataset_processing.image_dataset_2_processing import get_dataset_2
+from dataset_processing.image_dataset_3_processing import get_dataset_3
+import alibi
 
-from image_classification_core import (binary_dataset_creation,
-                                       img_classification_model,
-                                       plot_accuracy_loss)
+def anchors_image_explainer(model, train_generator, test_generator):
 
-# Used to confirm if GPU is being leveraged for the running of the model.
-# Uncomment line 12 and 13 to see which devices are being used by tensorflow.
-#from tensorflow.python.client import device_lib
-#print(device_lib.list_local_devices())
+    X_train, y_train = train_generator.next()
+    X_test, y_test = test_generator.next()
 
-###############################
-# EXTRACTING LIME EXPLANATION #
-###############################
-# +------------------------------------------------------+
-# + Function inputs:                                     +
-# +    - TensorFlow classification model                 +
-# +    - A image_generator to create explanations from   +
-# +------------------------------------------------------+
-# + Function outputs:                                    +
-# +     -                                                +
-# +------------------------------------------------------+
-def extracting_lime_explanation(model, path_list, labels):
+    classes = list(train_generator.class_indices)
+    X_train_processed = [inc_net.preprocess_input(img) for img in X_train]
+    X_test_processed = [inc_net.preprocess_input(img) for img in X_test]
+    
+    def superpixel(image, size=(4, 7)):
+        segments = np.zeros([image.shape[0], image.shape[1]])
+        row_idx, col_idx = np.where(segments == 0)
+        for i, j in zip(row_idx, col_idx):
+            segments[i, j] = int((image.shape[1]/size[1]) * (i//size[0]) + j//size[1])
+        return segments
+    
+    segments = superpixel(X_train[1])
 
-    #def transform_img_fn(path_list):
-    out = []
-    for img_path in path_list:
-        img = image.load_img(img_path, target_size=(256, 256))
-        x = image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        x = inc_net.preprocess_input(x)
-        out.append(x)
-    images = np.vstack(out)
-    #images = transform_img_fn(path_list)
+    def wrapped_predict(x):
+        pred_list = model.predict(np.expand_dims(x, axis=0))
+        pred = float(pred_list[0][0])
+        if pred > 0.5:
+            prediction = np.insert(pred_list[0], 0, 1-pred)
+        else: 
+            prediction = np.insert(pred_list[0], 1, 1-pred)
+        return prediction
+    
+    def wrapped_predict_all(payloads):
+        results = [wrapped_predict(payload) for payload in payloads]
+        prediction = np.array(results, dtype=float)
+        return prediction
 
-    def lime_explainer_image():
-        # Message
-        print('This may take a few minutes...')
-        
-        # Create explainer 
-        explainer = lime_image.LimeImageExplainer()
-        from skimage.segmentation import mark_boundaries  
-        random_indexes = random.sample(range(1,len(images)),2)
+    predict_fn = lambda x: wrapped_predict_all(x)
 
-        for index in random_indexes:
-            # Set up the explainer
-            explanation = explainer.explain_instance(images[index].astype('double'), classifier_fn = model.predict, labels = (0,1),top_labels = 2, hide_color = 0, num_samples = 1000)
+    random_indexes = random.sample(range(1,len(X_test)),3)
 
-            temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=True, num_features=5, hide_rest=True)
-            fig, (ax1, ax2, ax3) = plt.subplots(1,3, figsize = (10, 4))
+    for index in random_indexes:
+        image_shape = X_train_processed[1].shape
+        kwargs = {'n_segments':15, 'compactness':20, 'sigma':.5}
+        explainer = AnchorImage(predict_fn, image_shape, segmentation_fn='slic',
+                                segmentation_kwargs=kwargs, images_background=None)
+        image = X_test_processed[index]
+        explanation = explainer.explain(image, threshold=.65, p_sample=.5, tau=0.20)
+    
+        plt.imshow(explanation.anchor)
+        plt.axis('off')
+        plt.title("Classification: " + str(classes[int(y_test[index])]))
+        plt.savefig("image_explanations/anchors_image_explanations/image_data_1/anchors_explainer_"+str(index)+".png")
 
-            preds = explanation.local_pred
-            prediction = np.argmax(preds)
-            pct = np.max(preds)
+############################################################
+# INITIALISING MODEL & DATA FOR FAKE VS REAL FACES DATASET #
+############################################################
+train_generator, test_generator, valid_generator = get_dataset_1()
+model_name = "shap_xai_image_classification_data_1_ConvNet" # Initialising a model name
+model = load_model("models/image_models/"+model_name+".h5") # Loading the saved model
+save_path = 'image_explanations/anchor_image_explanations/image_data_1/'
+anchors_image_explainer(model, train_generator, valid_generator)
 
-            fig.suptitle('Classifier result: %r %% certainty of %r' %(round(pct,2)*100,labels[prediction]))
-            fig.tight_layout(h_pad=2)
+####################################################
+# INITIALISING MODEL & DATA FOR CAT VS DOG DATASET #
+####################################################
+train_generator, test_generator = get_dataset_2()
+model_name = "shap_xai_image_classification_data_2_ConvNet" # Initialising a model name
+model = load_model("models/image_models/"+model_name+".h5") # Loading the saved model
+save_path = 'image_explanations/anchor_image_explanations/image_data_2/'
+anchors_image_explainer(model, train_generator, test_generator)
 
-            ax1.imshow(images[index])
-            ax1.set_title('Original Image')
+###########################################################
+# INITIALISING MODEL & DATA FOR WATERMARK VS NO_WATERMARK #
+###########################################################
+train_generator, valid_generator = get_dataset_3()
+model_name = "shap_xai_image_classification_data_3_ConvNet"
+model = load_model("models/image_models/"+model_name+".h5")
+save_path = 'image_explanations/anchor_image_explanations/image_data_3/'
+anchors_image_explainer(model, train_generator, valid_generator)
 
-            ax2.imshow(mark_boundaries(temp, mask))
-            ax2.set_title('Positive Regions for {}'.format(labels[explanation.top_labels[0]]))
 
-            temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=False, num_features=10, hide_rest=False)
-            ax3.imshow(mark_boundaries(temp, mask))
-            ax3.set_title('Positive & Negative Regions for {}'.format(labels[explanation.top_labels[0]]))
-
-            fig.savefig("image_explanations/lime_image_explanations/explanation_"+str(labels[explanation.top_labels[0]])+"_"+str(index)+".jpg")
-    lime_explainer_image()
-
-test_df = pd.read_csv('datasets/image_data_1/test.csv')
-train_df = pd.read_csv('datasets/image_data_1/train.csv')
-valid_df = pd.read_csv('datasets/image_data_1/valid.csv')
-
-test_generator = binary_dataset_creation(32, 256, 256, True, False, dataframe=test_df)
-train_generator = binary_dataset_creation(32, 256, 256, True, False, dataframe=train_df)
-valid_generator = binary_dataset_creation(32, 256, 256, True, False, dataframe=valid_df)
-
-path_list_1 = valid_df['path'].tolist()
-labels_1 = list(valid_generator.class_indices.keys())
-model_name = "lime_xai_image_classification_ConvNet"
-model = load_model("models/lime_xai_image_classification_ConvNet.h5")
-
-#extracting_lime_explanation(model, path_list_1, labels_1)
-#history, model = img_classification_model(train_generator, valid_generator, 50, model_name)
-
-extracting_lime_explanation(model, path_list_1, labels_1)
-#history=np.load('model_history/image_classification_ConvNet_image_data_1.npy',allow_pickle='TRUE').item()
-#plot_accuracy_loss(history, 50)
