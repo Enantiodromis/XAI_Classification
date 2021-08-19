@@ -1,8 +1,9 @@
 import numpy as np
-from keras.layers import Conv2D, Dense, Flatten, MaxPool2D
-from keras.models import Sequential
-from keras.optimizers import rmsprop_v2
-from keras.preprocessing.image import ImageDataGenerator
+import tensorflow.keras
+from tensorflow.keras.layers import Conv2D, Dense, Flatten, MaxPool2D
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import RMSprop
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from matplotlib import pyplot as plt
 
 
@@ -91,9 +92,8 @@ def img_classification_model(train_generator, test_generator, number_epochs, mod
     model.add(Dense(1, activation='sigmoid'))
 
     model.compile(loss='binary_crossentropy',
-                optimizer=rmsprop_v2(learning_rate=1e-3),
-                metrics=['acc'])
-
+                optimizer= RMSprop(lr=1e-4),
+                metrics=['accuracy'])
     history = model.fit(
         train_generator,
         steps_per_epoch=(len(train_generator) / train_generator.batch_size),

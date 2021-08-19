@@ -59,8 +59,8 @@ def dataset_1_preprocessing(dataframe):
     x_column = x_column.str.replace(numbers_regex,' ',regex=True)
 
     # Importing english stopwords from nltk library and removing from dataframe
-    eng_stopwords = set(stopwords.words('english'))
-    x_column = x_column.apply(lambda x: [word for word in x.split() if word not in (eng_stopwords)])
+    #eng_stopwords = set(stopwords.words('english'))
+    #x_column = x_column.apply(lambda x: [word for word in x.split() if word not in (eng_stopwords)])
 
     # Returning rows associated with X and Y data
     return  x_column, y_data

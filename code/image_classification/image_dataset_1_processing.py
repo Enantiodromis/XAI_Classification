@@ -1,4 +1,4 @@
-from image_classification_core import binary_dataset_creation
+from model_and_plot import binary_dataset_creation
 from PIL import ImageFile
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True

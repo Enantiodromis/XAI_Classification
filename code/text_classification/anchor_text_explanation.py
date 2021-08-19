@@ -32,6 +32,7 @@ def anchor_text_explainer(X_test, model, word_index, tokenizer, max_sequence_len
         text_data = pad_sequences(cnn_rep, maxlen=max_sequence_length)
         prediction = model.predict(text_data)
         predicted_class = np.where(prediction > 0.5, 1,0)[0]
+        #print(predicted_class)
         return predicted_class
 
     nlp = spacy.load('en_core_web_sm')
@@ -68,7 +69,7 @@ anchor_text_explainer(X_test, model, word_index, tokenizer, max_sequence_length,
 ############################################
 # GENERATING EXPLAINATIONS FOR TEXT_DATA_3 #
 ############################################
-class_names = ['negative, positive'] # The class names of the dataset, the order is important.
+class_names = ['negative', 'positive'] # The class names of the dataset, the order is important.
 save_path = 'text_explanations/anchors_text_explanations/text_data_3/' # The filepath to save the related explanations.
 X_train, X_test, y_train, y_test, max_sequence_length, vocab_size, word_index, tokenizer = get_dataset_3(0.3, 30000) # Processing the data preparing for training
 model_name = "xai_text_classification_data_3_lstm" # Name of associated model
