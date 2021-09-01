@@ -1,11 +1,18 @@
+# Author: George Richard Edward Bradley
+# Project: xai_classification_mixed_data
+# Title: model_and_plot
+# GitHub: https://github.com/Enantiodromis
+
+###########
+# IMPORTS #
+###########
 import numpy as np
 import tensorflow.keras
+from matplotlib import pyplot as plt
 from tensorflow.keras.layers import Conv2D, Dense, Flatten, MaxPool2D
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from matplotlib import pyplot as plt
-
 
 ####################
 # DATASET CREATION #
@@ -33,7 +40,7 @@ def binary_dataset_creation(batch_size, img_height, img_width, from_dataframe, n
             )
         return generator
     else: 
-        data_generator = ImageDataGenerator(validation_split=0.2)
+        data_generator = ImageDataGenerator(validation_split=0.33)
         if from_dataframe == True:
             generator_1 = data_generator.flow_from_dataframe(
                 dataframe = dataframe,
@@ -94,9 +101,10 @@ def img_classification_model(train_generator, test_generator, number_epochs, mod
     model.compile(loss='binary_crossentropy',
                 optimizer= RMSprop(lr=1e-4),
                 metrics=['accuracy'])
+
     history = model.fit(
         train_generator,
-        steps_per_epoch=(len(train_generator) / train_generator.batch_size),
+        steps_per_epoch=len(train_generator),
         epochs=number_epochs,
         validation_data=test_generator,
         validation_steps=len(test_generator),
@@ -106,28 +114,52 @@ def img_classification_model(train_generator, test_generator, number_epochs, mod
 
     return history, model
 
-def plot_accuracy_loss(model_history, number_epochs, model_name):
-    x_list = []
-    x_list.extend(range(number_epochs))
+##################################################
+# FUNCTION TO PLOT THE HISTORY OF TRAINED MODELS #
+##################################################
+def plot_accuracy_loss_multiple(model_history_1, model_history_2, model_history_3, plt_name, loss=False):
+    print("Saving model performance...")
 
-    plt.figure(2,figsize=(15,4))
-    plt.plot(model_history['acc'])
-    plt.plot(model_history['val_acc'])
-    plt.title('Model accuracy')
-    plt.ylabel('accuracy')
-    plt.xlabel('epoch')
-    plt.xticks(x_list)
-    plt.tight_layout()
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.savefig("data_plots/"+model_name+"_acc.jpg")
+    # Chaning between plot for accuracy or loss
+    if loss == True:
+        y_1 = 'loss'
+        y_2 = 'val_loss'
+    else:
+        y_1 = 'accuracy'
+        y_2 = 'val_accuracy'
 
-    plt.figure(3,figsize=(15,4))
-    plt.plot(model_history['loss'], color='green')
-    plt.plot(model_history['val_loss'], color='red')
-    plt.title('Model loss')
-    plt.ylabel('loss')
+    # Create figure.
+    fig = plt.figure(figsize=(30, 10))
+            
+    # Setting values to rows and column variables
+    rows = 1
+    columns = 3
+
+    # Adding suplot for Dataset 1
+    fig.add_subplot(rows, columns, 1)
+    plt.plot(model_history_1[y_1])
+    plt.plot(model_history_1[y_2])
+    plt.title('Dataset 1')
+    plt.ylabel(y_1)
     plt.xlabel('epoch')
-    plt.xticks(x_list)
-    plt.tight_layout()
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.savefig("data_plots/"+model_name+"_loss.jpg")
+    plt.legend([y_1, y_2], loc='upper left')
+
+    # Adding suplot for Dataset 2
+    fig.add_subplot(rows, columns, 2)
+    plt.plot(model_history_2[y_1])
+    plt.plot(model_history_2[y_2])
+    plt.title('Dataset 2')
+    plt.ylabel(y_1)
+    plt.xlabel('epoch')
+    plt.legend([y_1, y_2], loc='upper left')
+
+    # Adding suplot for Dataset 3
+    fig.add_subplot(rows, columns, 3)
+    plt.plot(model_history_3[y_1])
+    plt.plot(model_history_3[y_2])
+    plt.title('Dataset 3')
+    plt.ylabel(y_1)
+    plt.xlabel('epoch')
+    plt.legend([y_1, y_2], loc='upper left')
+        
+    fig.savefig(plt_name+".jpg")
