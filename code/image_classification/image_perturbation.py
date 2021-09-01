@@ -1,6 +1,6 @@
 # Author: George Richard Edward Bradley
 # Project: xai_classification_mixed_data
-# Title: anchor_image_explanation
+# Title: image_perturbation
 # GitHub: https://github.com/Enantiodromis
 
 ###########
